@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>调研数据看板</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, 'PingFang SC', sans-serif; background: #1a1a2e; color: #e0e0e0; padding: 20px; min-height: 100vh; }
+h1 { text-align: center; margin-bottom: 8px; font-size: 22px; }
+.subtitle { text-align: center; color: #888; font-size: 13px; margin-bottom: 24px; }
+.progress-bar { background: #2a2a3e; border-radius: 12px; height: 24px; margin-bottom: 24px; position: relative; overflow: hidden; }
+.progress-fill { height: 100%; background: linear-gradient(90deg, #ff6b00, #ff9500); border-radius: 12px; transition: width 0.5s; }
+.progress-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 12px; font-weight: 600; }
+.section { background: #2a2a3e; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+.section h2 { font-size: 15px; margin-bottom: 12px; color: #ff9500; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { padding: 8px 6px; text-align: center; border-bottom: 1px solid #3a3a4e; }
+th { color: #888; font-weight: 500; font-size: 11px; }
+td { color: #e0e0e0; }
+.bar-cell { text-align: left; }
+.bar { display: inline-block; height: 16px; background: #ff6b00; border-radius: 3px; margin-right: 6px; vertical-align: middle; min-width: 2px; }
+.empty { text-align: center; color: #666; padding: 40px; }
+.refresh-info { text-align: center; color: #555; font-size: 11px; margin-top: 12px; }
+.highlight { color: #ff9500; font-weight: 700; }
+</style>
+</head>
+<body>
+<h1>运动分享调研看板</h1>
+<p class="subtitle">数据每 30 秒自动刷新</p>
+
+<div class="progress-bar">
+  <div class="progress-fill" id="progress-fill"></div>
+  <span class="progress-text" id="progress-text">加载中...</span>
+</div>
+
+<div class="section" id="section-style">
+  <h2>场景 × 样式选择</h2>
+  <div id="table-style"></div>
+</div>
+
+<div class="section" id="section-duration">
+  <h2>各场景编辑时长</h2>
+  <div id="table-duration"></div>
+</div>
+
+<div class="section" id="section-features">
+  <h2>功能使用率 Top 10</h2>
+  <div id="table-features"></div>
+</div>
+
+<p class="refresh-info" id="refresh-info"></p>
+
+<script>
+const TARGET = 20;
+const SCENARIO_NAMES = { daily: '日常打卡', pb: '成绩突破', marathon: '马拉松完赛' };
+const STYLE_NAMES = { watermark: '水印海报', video: '轨迹视频', report: '运动报告' };
+
+async function fetchData() {
+  try {
+    const res = await fetch('/api/results');
+    const { total, submissions } = await res.json();
+    render(total, submissions);
+  } catch (e) {
+    document.getElementById('progress-text').textContent = '无法连接服务器';
+  }
+}
+
+function render(total, submissions) {
+  // Progress
+  const pct = Math.min(100, (total / TARGET * 100)).toFixed(0);
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-text').textContent = `已收集 ${total} / ${TARGET} 份 (${pct}%)`;
+
+  if (total === 0) {
+    document.getElementById('table-style').innerHTML = '<p class="empty">暂无数据</p>';
+    document.getElementById('table-duration').innerHTML = '<p class="empty">暂无数据</p>';
+    document.getElementById('table-features').innerHTML = '<p class="empty">暂无数据</p>';
+    return;
+  }
+
+  // Style matrix
+  const styleMatrix = { daily: {}, pb: {}, marathon: {} };
+  submissions.forEach(sub => {
+    const summary = sub.data?.summary || {};
+    Object.entries(summary).forEach(([scenario, info]) => {
+      if (!styleMatrix[scenario]) return;
+      const style = info.styleChoice || 'unknown';
+      styleMatrix[scenario][style] = (styleMatrix[scenario][style] || 0) + 1;
+    });
+  });
+
+  let styleHTML = '<table><tr><th></th><th>水印海报</th><th>轨迹视频</th><th>运动报告</th></tr>';
+  ['daily', 'pb', 'marathon'].forEach(s => {
+    const row = styleMatrix[s];
+    const t = Object.values(row).reduce((a, b) => a + b, 0) || 1;
+    styleHTML += `<tr>
+      <td><b>${SCENARIO_NAMES[s]}</b></td>
+      <td>${pctStr(row.watermark, t)}</td>
+      <td>${pctStr(row.video, t)}</td>
+      <td>${pctStr(row.report, t)}</td>
+    </tr>`;
+  });
+  styleHTML += '</table>';
+  document.getElementById('table-style').innerHTML = styleHTML;
+
+  // Duration
+  const durations = { daily: [], pb: [], marathon: [] };
+  submissions.forEach(sub => {
+    const summary = sub.data?.summary || {};
+    Object.entries(summary).forEach(([scenario, info]) => {
+      if (durations[scenario]) durations[scenario].push(info.totalDuration || 0);
+    });
+  });
+
+  let durHTML = '<table><tr><th>场景</th><th>中位数</th><th>平均值</th><th>最大值</th></tr>';
+  ['daily', 'pb', 'marathon'].forEach(s => {
+    const arr = durations[s].sort((a, b) => a - b);
+    if (arr.length === 0) { durHTML += `<tr><td>${SCENARIO_NAMES[s]}</td><td colspan="3">-</td></tr>`; return; }
+    const med = arr[Math.floor(arr.length / 2)];
+    const avg = arr.reduce((a, b) => a + b, 0) / arr.length;
+    const max = arr[arr.length - 1];
+    durHTML += `<tr>
+      <td><b>${SCENARIO_NAMES[s]}</b></td>
+      <td>${fmtDur(med)}</td>
+      <td>${fmtDur(avg)}</td>
+      <td>${fmtDur(max)}</td>
+    </tr>`;
+  });
+  durHTML += '</table>';
+  document.getElementById('table-duration').innerHTML = durHTML;
+
+  // Feature usage
+  const featureCount = {};
+  submissions.forEach(sub => {
+    const summary = sub.data?.summary || {};
+    Object.values(summary).forEach(info => {
+      (info.featuresUsed || []).forEach(f => {
+        featureCount[f] = (featureCount[f] || 0) + 1;
+      });
+    });
+  });
+
+  const sorted = Object.entries(featureCount).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  const maxCount = sorted[0] ? sorted[0][1] : 1;
+
+  let featHTML = '<table>';
+  sorted.forEach(([feat, count]) => {
+    const barW = Math.round(count / maxCount * 120);
+    const rate = (count / total * 100).toFixed(0);
+    featHTML += `<tr>
+      <td style="text-align:left;width:35%">${feat}</td>
+      <td class="bar-cell"><span class="bar" style="width:${barW}px"></span>${rate}%</td>
+      <td style="width:15%">${count}人</td>
+    </tr>`;
+  });
+  featHTML += '</table>';
+  document.getElementById('table-features').innerHTML = featHTML;
+
+  document.getElementById('refresh-info').textContent = '上次刷新: ' + new Date().toLocaleTimeString();
+}
+
+function pctStr(count, total) {
+  if (!count) return '<span style="color:#555">0%</span>';
+  const p = (count / total * 100).toFixed(0);
+  return `<span class="highlight">${p}%</span> (${count})`;
+}
+
+function fmtDur(ms) {
+  const s = Math.round(ms / 1000);
+  if (s < 60) return s + '秒';
+  return Math.floor(s / 60) + '分' + (s % 60) + '秒';
+}
+
+// Initial fetch + auto refresh
+fetchData();
+setInterval(fetchData, 30000);
+</script>
+</body>
+</html>

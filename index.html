@@ -1461,7 +1461,6 @@ body {
   margin-top: 4px;
 }
 
-
 /* ==================== PAGE 4: 轨迹视频编辑 ==================== */
 .p4-page {
   background: #111 !important;
@@ -2261,6 +2260,85 @@ body {
     border-radius: 0;
   }
 }
+
+/* === Tracker: 场景引导 Overlay === */
+.tracker-overlay {
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: #000;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  color: #fff;
+  text-align: center;
+}
+.tracker-overlay.hidden { display: none; }
+
+.tracker-intro h2 { font-size: 18px; margin-bottom: 16px; }
+.tracker-intro-cards {
+  display: flex; gap: 10px; margin-bottom: 20px;
+}
+.tracker-intro-card {
+  flex: 1; background: #222; border-radius: 12px; padding: 12px 8px;
+}
+.tracker-intro-card img { width: 48px; height: 48px; margin-bottom: 6px; border-radius: 8px; }
+.tracker-intro-card .card-title { font-size: 12px; font-weight: 600; }
+.tracker-intro-card .card-desc { font-size: 10px; color: #aaa; margin-top: 4px; }
+
+.tracker-scenario h2 { font-size: 16px; color: #ff6b00; margin-bottom: 8px; }
+.tracker-scenario .scenario-badge {
+  display: inline-block; background: #ff6b00; color: #fff;
+  font-size: 11px; padding: 2px 10px; border-radius: 10px; margin-bottom: 12px;
+}
+.tracker-scenario .scenario-desc {
+  font-size: 14px; line-height: 1.6; color: #ddd; margin-bottom: 16px;
+  text-align: left; background: #1a1a1a; border-radius: 10px; padding: 16px;
+}
+.tracker-scenario .scenario-data {
+  font-size: 12px; color: #999; margin-bottom: 20px;
+}
+
+.tracker-btn {
+  background: #ff6b00; color: #fff; border: none; border-radius: 24px;
+  padding: 12px 36px; font-size: 15px; font-weight: 600; cursor: pointer;
+}
+.tracker-btn:active { opacity: 0.8; }
+.tracker-skip {
+  color: #666; font-size: 12px; margin-top: 12px; cursor: pointer; border: none; background: none;
+}
+
+/* === Tracker: 导出面板 === */
+.tracker-export-overlay {
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: #000;
+  z-index: 9999;
+  display: none;
+  flex-direction: column;
+  padding: 20px;
+  color: #fff;
+  overflow-y: auto;
+}
+.tracker-export-overlay.show { display: flex; }
+.tracker-export-overlay h2 { font-size: 18px; margin-bottom: 16px; text-align: center; }
+.tracker-summary-card {
+  background: #1a1a1a; border-radius: 12px; padding: 14px; margin-bottom: 12px;
+}
+.tracker-summary-card h3 { font-size: 14px; color: #ff6b00; margin-bottom: 8px; }
+.tracker-summary-card p { font-size: 12px; color: #ccc; line-height: 1.6; }
+.tracker-export-btn {
+  background: #ff6b00; color: #fff; border: none; border-radius: 24px;
+  padding: 12px; font-size: 15px; font-weight: 600; cursor: pointer;
+  margin-top: 16px; width: 100%;
+}
+.tracker-export-btn:active { opacity: 0.8; }
+.tracker-restart-btn {
+  background: transparent; color: #999; border: 1px solid #333; border-radius: 24px;
+  padding: 10px; font-size: 13px; cursor: pointer; margin-top: 10px; width: 100%;
+}
 </style>
 </head>
 <body>
@@ -2282,6 +2360,19 @@ body {
 </svg>
 
 <div class="phone-frame">
+
+  <!-- Tracker: 场景引导 Overlay -->
+  <div id="tracker-overlay" class="tracker-overlay">
+    <!-- 内容由 JS 动态填充 -->
+  </div>
+
+  <!-- Tracker: 导出面板 -->
+  <div id="tracker-export" class="tracker-export-overlay">
+    <h2>调研完成 🎉</h2>
+    <div id="tracker-summary"></div>
+    <button class="tracker-export-btn" id="tracker-export-btn">导出 JSON 数据</button>
+    <button class="tracker-restart-btn" id="tracker-restart-btn">重新开始</button>
+  </div>
 
   <!-- PAGE 1: 运动报告页 -->
   <div id="page1" class="page active">
@@ -2894,11 +2985,323 @@ body {
 </div>
 
 <script>
+// ========== 数据回传模块（飞书 Webhook）==========
+// ⚠️ 部署前替换为你的飞书群 Webhook 地址
+const FEISHU_WEBHOOK = 'YOUR_FEISHU_WEBHOOK_URL_HERE';
+
+function getUserId() {
+  let id = localStorage.getItem('tracker_user_id');
+  if (!id) {
+    id = 'usr_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+    localStorage.setItem('tracker_user_id', id);
+  }
+  return id;
+}
+
+async function submitToServer() {
+  if (!FEISHU_WEBHOOK || FEISHU_WEBHOOK.includes('YOUR_FEISHU')) {
+    console.warn('⚠️ 飞书 Webhook 未配置，跳过自动提交');
+    return;
+  }
+  try {
+    const data = JSON.parse(Tracker.export());
+    const summary = data.summary || {};
+    const scenarios = Object.keys(summary);
+    const userId = getUserId();
+
+    // 构造飞书消息卡片
+    const styles = scenarios.map(s => {
+      const names = { daily: '日常', pb: 'PB', marathon: '马拉松' };
+      const styleNames = { watermark: '海报', video: '视频', report: '报告' };
+      return `${names[s] || s}→${styleNames[summary[s]?.styleChoice] || '?'}`;
+    }).join(' / ');
+
+    const totalDur = scenarios.reduce((sum, s) => sum + (summary[s]?.totalDuration || 0), 0);
+    const durStr = totalDur < 60000 ? Math.round(totalDur/1000) + '秒' : Math.floor(totalDur/60000) + '分' + Math.round((totalDur%60000)/1000) + '秒';
+
+    const features = scenarios.map(s => `${s}(${summary[s]?.featureCount || 0})`).join('/');
+
+    const card = {
+      msg_type: 'interactive',
+      card: {
+        header: { title: { tag: 'plain_text', content: '📊 调研数据已收到' }, template: 'green' },
+        elements: [
+          { tag: 'div', text: { tag: 'lark_md', content: [
+            `**用户ID：** ${userId.slice(0, 12)}`,
+            `**样式选择：** ${styles}`,
+            `**编辑总时长：** ${durStr}`,
+            `**功能使用数：** ${features}`,
+            `**提交时间：** ${new Date().toLocaleString('zh-CN')}`,
+            '---',
+            '**完整数据（复制下方JSON）：**'
+          ].join('\n') }},
+          { tag: 'div', text: { tag: 'plain_text', content: JSON.stringify({ userId, submittedAt: new Date().toISOString(), ...data }) }}
+        ]
+      }
+    };
+
+    await fetch(FEISHU_WEBHOOK, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(card)
+    });
+    console.log('✅ 数据已发送到飞书');
+  } catch (e) {
+    console.warn('⚠️ 飞书发送失败（不影响使用）:', e.message);
+  }
+}
+
+// ========== Tracker 埋点模块 ==========
+const Tracker = (() => {
+  let events = [];
+  let currentScenario = null;
+  let currentPage = null;
+  let pageEnterTime = 0;
+  let scenarioStartTime = 0;
+
+  return {
+    setScenario(name) {
+      currentScenario = name;
+      scenarioStartTime = Date.now();
+    },
+    enterPage(pageId) {
+      if (currentPage && currentPage !== pageId) {
+        this.log('leave', currentPage);
+      }
+      currentPage = pageId;
+      pageEnterTime = Date.now();
+      this.log('enter', pageId);
+    },
+    log(action, target, detail = {}) {
+      if (!currentScenario) return;
+      events.push({
+        timestamp: Date.now(),
+        scenario: currentScenario,
+        page: currentPage,
+        action,
+        target,
+        detail,
+        elapsed: Date.now() - pageEnterTime
+      });
+    },
+    getEvents() { return events; },
+    getScenarioEvents(scenario) {
+      return events.filter(e => e.scenario === scenario);
+    },
+    summary() {
+      const scenarios = ['daily', 'pb', 'marathon'];
+      const result = {};
+      scenarios.forEach(s => {
+        const se = this.getScenarioEvents(s);
+        if (!se.length) return;
+        const shares = se.filter(e => e.action === 'share');
+        const abandons = se.filter(e => e.action === 'abandon');
+        const clicks = se.filter(e => e.action === 'click');
+        const styleChoice = se.find(e => e.target && e.target.startsWith('style-'));
+        const firstEnter = se[0] ? se[0].timestamp : 0;
+        const lastEvent = se[se.length - 1] ? se[se.length - 1].timestamp : 0;
+        const features = [...new Set(clicks.map(e => e.target))];
+        result[s] = {
+          totalEvents: se.length,
+          totalDuration: lastEvent - firstEnter,
+          styleChoice: styleChoice ? styleChoice.target.replace('style-', '') : null,
+          shared: shares.length > 0,
+          abandoned: abandons.length > 0,
+          featuresUsed: features,
+          featureCount: features.length
+        };
+      });
+      return result;
+    },
+    export() {
+      return JSON.stringify({ events, summary: this.summary() }, null, 2);
+    },
+    reset() {
+      events = [];
+      currentScenario = null;
+      currentPage = null;
+    }
+  };
+})();
+
+// ========== 场景管理模块 ==========
+const ScenarioManager = (() => {
+  const scenarios = [
+    {
+      id: 'daily', name: '日常打卡',
+      desc: '周三晚上，你刚在小区旁边跑完5公里，出了一身汗。你掏出手机走在回家路上，想发个朋友圈记录一下今天的运动，然后到家赶紧洗澡。',
+      data: '5.02km / 32分钟 / 配速6\'23" / 心率155bpm'
+    },
+    {
+      id: 'pb', name: '成绩突破（PB）',
+      desc: '今天你跑出了个人5公里最好成绩！比上次快了整整40秒。你停下来喘着气，心情非常激动，想立刻分享给跑友群和朋友圈，让大家看看你的进步。',
+      data: '5.00km / 24分18秒 / 配速4\'52"（PB）/ 心率172bpm'
+    },
+    {
+      id: 'marathon', name: '马拉松完赛',
+      desc: '你完成了人生第一场全程马拉松！领完奖牌后坐在完赛休息区，喝着水，腿酸但内心充满成就感。这是一个里程碑时刻，你想认真做一条内容，发朋友圈/小红书/视频号纪念。',
+      data: '42.20km / 4小时38分 / 配速6\'35" / 心率148bpm / 累计爬升186m'
+    }
+  ];
+
+  let order = [];
+  let currentIndex = -1;
+  let phase = 'intro'; // intro | scenario | done
+
+  function shuffle(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function renderIntro() {
+    const overlay = document.getElementById('tracker-overlay');
+    overlay.innerHTML = `
+      <div class="tracker-intro">
+        <h2>运动分享功能体验</h2>
+        <p style="font-size:13px;color:#aaa;margin-bottom:16px;">请先了解三种分享方式，随后将完成3个场景任务</p>
+        <div class="tracker-intro-cards">
+          <div class="tracker-intro-card">
+            <div class="card-title">水印海报</div>
+            <div class="card-desc">精美图片贴上运动数据</div>
+          </div>
+          <div class="tracker-intro-card">
+            <div class="card-title">轨迹视频</div>
+            <div class="card-desc">运动轨迹变成动画视频</div>
+          </div>
+          <div class="tracker-intro-card">
+            <div class="card-title">运动报告</div>
+            <div class="card-desc">完整运动数据长图报告</div>
+          </div>
+        </div>
+        <button class="tracker-btn" id="tracker-intro-start">了解了，开始任务</button>
+        <button class="tracker-skip" id="tracker-intro-skip">跳过说明，直接开始</button>
+      </div>
+    `;
+    document.getElementById('tracker-intro-start').addEventListener('click', () => startNextScenario());
+    document.getElementById('tracker-intro-skip').addEventListener('click', () => startNextScenario());
+  }
+
+  function renderScenario(s) {
+    const overlay = document.getElementById('tracker-overlay');
+    overlay.classList.remove('hidden');
+    overlay.innerHTML = `
+      <div class="tracker-scenario">
+        <div class="scenario-badge">场景 ${currentIndex + 1} / 3</div>
+        <h2>${s.name}</h2>
+        <div class="scenario-desc">${s.desc}</div>
+        <div class="scenario-data">📊 ${s.data}</div>
+        <button class="tracker-btn" id="tracker-scenario-start">开始分享</button>
+      </div>
+    `;
+    document.getElementById('tracker-scenario-start').addEventListener('click', () => {
+      overlay.classList.add('hidden');
+      Tracker.setScenario(s.id);
+      Tracker.enterPage('page1');
+    });
+  }
+
+  function startNextScenario() {
+    currentIndex++;
+    if (currentIndex >= order.length) {
+      finishAll();
+      return;
+    }
+    phase = 'scenario';
+    renderScenario(order[currentIndex]);
+  }
+
+  function onShareComplete() {
+    if (phase !== 'scenario') return;
+    Tracker.log('share', 'scenario-complete');
+    setTimeout(() => {
+      resetDemoState();
+      startNextScenario();
+    }, 800);
+  }
+
+  function finishAll() {
+    phase = 'done';
+    const overlay = document.getElementById('tracker-overlay');
+    overlay.classList.add('hidden');
+    submitToServer();
+    showExportPanel();
+  }
+
+  function showExportPanel() {
+    const panel = document.getElementById('tracker-export');
+    const summaryDiv = document.getElementById('tracker-summary');
+    const summary = Tracker.summary();
+    const scenarioNames = { daily: '日常打卡', pb: '成绩突破', marathon: '马拉松完赛' };
+    let html = '';
+    Object.entries(summary).forEach(([key, val]) => {
+      html += `<div class="tracker-summary-card">
+        <h3>${scenarioNames[key] || key}</h3>
+        <p>
+          选择样式：<b>${val.styleChoice || '未选'}</b><br>
+          操作数：${val.featureCount} 个功能<br>
+          总时长：${(val.totalDuration / 1000).toFixed(1)}秒<br>
+          结果：${val.shared ? '✅ 已分享' : (val.abandoned ? '❌ 放弃' : '⏳ 未完成')}<br>
+          使用功能：${val.featuresUsed.join(', ') || '无'}
+        </p>
+      </div>`;
+    });
+    summaryDiv.innerHTML = html;
+    panel.classList.add('show');
+
+    document.getElementById('tracker-export-btn').addEventListener('click', () => {
+      const data = Tracker.export();
+      console.log('📊 埋点数据:', JSON.parse(data));
+      const blob = new Blob([data], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `tracker-${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    document.getElementById('tracker-restart-btn').addEventListener('click', () => {
+      panel.classList.remove('show');
+      Tracker.reset();
+      ScenarioManager.init();
+    });
+  }
+
+  function resetDemoState() {
+    document.querySelectorAll('.page').forEach(p => {
+      p.classList.remove('active', 'slide-in');
+    });
+    document.getElementById('page1').classList.add('active');
+    // Reset editor states if functions exist
+    if (typeof resetPosterEditor === 'function') try { resetPosterEditor(); } catch(e) {}
+    if (typeof resetVideoEditor === 'function') try { resetVideoEditor(); } catch(e) {}
+    if (typeof hasEdited !== 'undefined') hasEdited = false;
+  }
+
+  return {
+    init() {
+      order = shuffle(scenarios);
+      currentIndex = -1;
+      phase = 'intro';
+      renderIntro();
+    },
+    onShareComplete,
+    isActive() { return phase === 'scenario'; }
+  };
+})();
+
+document.addEventListener('DOMContentLoaded', () => ScenarioManager.init());
+
 // Page navigation helper
 function showPage(pageId, animate) {
   const target = document.getElementById(pageId);
   target.classList.add('active');
   if (animate) target.classList.add('slide-in');
+  Tracker.enterPage(pageId);
 }
 
 function hidePage(pageId) {
@@ -2925,22 +3328,26 @@ document.getElementById('btn-close').addEventListener('click', () => {
 
 // Page 2: Click "水印海报" → page 3
 document.getElementById('btn-watermark').addEventListener('click', () => {
+  Tracker.log('click', 'style-watermark');
   switchPage('page2', 'page3', true);
 });
 
 // Page 2: Click "轨迹视频" → page 4
 document.getElementById('btn-video').addEventListener('click', () => {
+  Tracker.log('click', 'style-video');
   switchPage('page2', 'page4', true);
 });
 
 // Page 2: Click "运动报告" → page 5
 document.getElementById('btn-report-edit').addEventListener('click', () => {
+  Tracker.log('click', 'style-report');
   switchPage('page2', 'page5', true);
   resetScrollHint();
 });
 
 // Page 3: Back → page 2
 document.getElementById('btn-template-back').addEventListener('click', () => {
+  Tracker.log('click', 'template-back');
   switchPage('page3', 'page2', false);
 });
 
@@ -3101,6 +3508,7 @@ function applyEffect(canvasEl, effect, tplKey) {
 // Page 3: Template selection → page 3b (background select)
 document.querySelectorAll('.p3-template-item').forEach(item => {
   item.addEventListener('click', () => {
+    Tracker.log('click', 'template-select', { template: item.dataset.tpl });
     selectedTemplate = item.dataset.tpl || '1';
     bgEntryFrom = 'page3';
     const config = templateConfigs[selectedTemplate];
@@ -3136,6 +3544,7 @@ document.getElementById('btn-custom-watermark').addEventListener('click', () => 
 // Page 3B: Preset background selection
 document.querySelectorAll('.p3b-preset-item').forEach(item => {
   item.addEventListener('click', () => {
+    Tracker.log('click', 'bg-preset', { bg: item.dataset.bg });
     document.querySelectorAll('.p3b-preset-item').forEach(p => p.classList.remove('selected'));
     item.classList.add('selected');
     selectedBg = item.dataset.bg;
@@ -3149,6 +3558,7 @@ document.querySelectorAll('.p3b-preset-item').forEach(item => {
 
 // Page 3B: Album → open album modal
 document.getElementById('btn-bg-album').addEventListener('click', () => {
+  Tracker.log('click', 'bg-album');
   const modal = document.getElementById('p3b-album-modal');
   const grid = document.getElementById('p3b-album-grid');
   grid.innerHTML = '';
@@ -3180,6 +3590,7 @@ document.getElementById('p3b-album-back').addEventListener('click', () => {
 
 // Page 3B: Transparent background
 document.getElementById('btn-bg-transparent').addEventListener('click', () => {
+  Tracker.log('click', 'bg-transparent');
   selectedBg = 'transparent';
   setP3bBg('transparent');
   document.querySelectorAll('.p3b-preset-item').forEach(p => p.classList.remove('selected'));
@@ -3189,6 +3600,7 @@ document.getElementById('btn-bg-transparent').addEventListener('click', () => {
 
 // Page 3B: Back (←)
 document.getElementById('btn-bg-back').addEventListener('click', () => {
+  Tracker.log('click', 'bg-back');
   if (bgEntryFrom === 'page3c') {
     switchPage('page3b', 'page3c', false);
   } else {
@@ -3207,6 +3619,7 @@ document.getElementById('btn-bg-cancel').addEventListener('click', () => {
 
 // Page 3B: Confirm (✓) → apply background and go to page 3c
 document.getElementById('btn-bg-confirm').addEventListener('click', () => {
+  Tracker.log('click', 'bg-confirm');
   const posterBg = document.getElementById('p3c-bg-img');
   if (selectedBg === 'transparent') {
     posterBg.style.display = 'none';
@@ -3246,7 +3659,7 @@ function loadTemplateToCanvas(tplKey) {
       src: wm.src,
       label: wm.src.split('/').pop().replace('.png',''),
       cat: isLogo ? 'logo' : 'other',
-      editable: false,
+      editable: !isLogo,
       locked: isLogo
     };
     addWatermarkAtPosition(fakeItem, wm.x, wm.y, wm.w, wm.h);
@@ -3327,6 +3740,7 @@ function addWatermarkAtPosition(item, xPct, yPct, wPct, hPct) {
 
 // Page 3C: Back with exit confirmation logic
 document.getElementById('btn-poster-back').addEventListener('click', () => {
+  Tracker.log('abandon', 'poster-back');
   if (wmHistory.length > 0) {
     document.getElementById('wm-exit-dialog').classList.add('show');
   } else {
@@ -3360,11 +3774,14 @@ function resetPosterEditor() {
 
 // Page 3C: Share → page 3d (overlay on top of page3c)
 document.getElementById('btn-poster-share').addEventListener('click', () => {
+  Tracker.log('share', 'poster-share');
   showPage('page3d', false);
+  ScenarioManager.onShareComplete();
 });
 
 // Page 3C: Background button → go to 3b from poster
 document.getElementById('btn-poster-bg').addEventListener('click', () => {
+  Tracker.log('click', 'poster-bg-edit');
   bgEntryFrom = 'page3c';
   switchPage('page3c', 'page3b', true);
 });
@@ -3446,7 +3863,10 @@ function updateCropRestoreBtn() {
 }
 
 // 裁剪按钮点击
-document.getElementById('btn-poster-crop').addEventListener('click', openCropModal);
+document.getElementById('btn-poster-crop').addEventListener('click', () => {
+  Tracker.log('click', 'poster-crop');
+  openCropModal();
+});
 
 // 返回按钮
 document.getElementById('wm-crop-back').addEventListener('click', () => closeCropModal(false));
@@ -3455,7 +3875,10 @@ document.getElementById('wm-crop-back').addEventListener('click', () => closeCro
 document.getElementById('wm-crop-cancel').addEventListener('click', () => closeCropModal(false));
 
 // 确认
-document.getElementById('wm-crop-confirm').addEventListener('click', () => closeCropModal(true));
+document.getElementById('wm-crop-confirm').addEventListener('click', () => {
+  Tracker.log('click', 'poster-crop-confirm');
+  closeCropModal(true);
+});
 
 // 还原按钮
 document.getElementById('wm-crop-restore').addEventListener('click', () => {
@@ -3671,12 +4094,14 @@ function restoreWatermark(item, state) {
   if (delBtn) {
     delBtn.addEventListener('click', (e) => {
       e.stopPropagation();
+      Tracker.log('click', 'poster-del-wm');
       el.remove();
       if (wmSelectedItem === el) wmSelectedItem = null;
       wmSaveState();
     });
     delBtn.addEventListener('touchend', (e) => {
       e.stopPropagation(); e.preventDefault();
+      Tracker.log('click', 'poster-del-wm');
       el.remove();
       if (wmSelectedItem === el) wmSelectedItem = null;
       wmSaveState();
@@ -3690,6 +4115,7 @@ function restoreWatermark(item, state) {
       if (el.classList.contains('editing')) {
         finishEditing(el);
       } else {
+        Tracker.log('click', 'poster-edit-wm');
         el.classList.add('editing');
         editBtn.textContent = '完成';
         openEditModal(el);
@@ -3700,6 +4126,7 @@ function restoreWatermark(item, state) {
       if (el.classList.contains('editing')) {
         finishEditing(el);
       } else {
+        Tracker.log('click', 'poster-edit-wm');
         el.classList.add('editing');
         editBtn.textContent = '完成';
         openEditModal(el);
@@ -3713,7 +4140,10 @@ function restoreWatermark(item, state) {
   wmCanvas.appendChild(el);
 }
 
-wmUndoBtn.addEventListener('click', wmUndo);
+wmUndoBtn.addEventListener('click', () => {
+  Tracker.log('click', 'poster-undo');
+  wmUndo();
+});
 
 // ---- 颜色编辑逻辑 ----
 const wmColorBtn = document.getElementById('btn-poster-color');
@@ -3812,10 +4242,16 @@ function rgbToSat(r, g, b) {
 }
 
 // 颜色按钮点击
-wmColorBtn.addEventListener('click', openColorEditor);
+wmColorBtn.addEventListener('click', () => {
+  Tracker.log('click', 'poster-color');
+  openColorEditor();
+});
 
 // 确认/取消
-document.getElementById('wm-color-confirm').addEventListener('click', () => closeColorEditor(true));
+document.getElementById('wm-color-confirm').addEventListener('click', () => {
+  Tracker.log('click', 'poster-color-confirm');
+  closeColorEditor(true);
+});
 document.getElementById('wm-color-cancel').addEventListener('click', () => closeColorEditor(false));
 
 // 预设颜色点击
@@ -3967,6 +4403,7 @@ const wmFullscreenOverlay = document.getElementById('wm-fullscreen-overlay');
 const page3cEl = document.getElementById('page3c');
 
 wmFullscreenBtn.addEventListener('click', () => {
+  Tracker.log('click', 'poster-fullscreen');
   deselectWm();
   page3cEl.classList.add('wm-fullscreen');
 });
@@ -4423,7 +4860,10 @@ wmCanvas.addEventListener('touchstart', (e) => {
 });
 
 // ---- 打开/关闭弹窗 ----
-document.getElementById('btn-poster-add-watermark').addEventListener('click', openWmPanel);
+document.getElementById('btn-poster-add-watermark').addEventListener('click', () => {
+  Tracker.log('click', 'poster-add-wm');
+  openWmPanel();
+});
 wmOverlay.addEventListener('click', closeWmPanel);
 
 // Tab 切换
@@ -4470,6 +4910,7 @@ let hasVideoEdited = false;
 
 // Page 4: Back button with confirm logic
 document.getElementById('btn-video-back').addEventListener('click', () => {
+  Tracker.log('abandon', 'video-back');
   if (hasVideoEdited) {
     showPage('page4a', false);
   } else {
@@ -4480,9 +4921,11 @@ document.getElementById('btn-video-back').addEventListener('click', () => {
 
 // Page 4: Share → recording → share panel
 document.getElementById('btn-video-share').addEventListener('click', () => {
+  Tracker.log('share', 'video-share');
   switchPage('page4', 'page4b', false);
   setTimeout(() => {
     switchPage('page4b', 'page4c', false);
+    ScenarioManager.onShareComplete();
   }, 2000);
 });
 
@@ -4531,6 +4974,7 @@ document.getElementById('btn-video-share-close').addEventListener('click', () =>
 // Page 4: Tab switching
 document.querySelectorAll('.p4-tab').forEach(tab => {
   tab.addEventListener('click', () => {
+    Tracker.log('click', 'video-tab', { tab: tab.dataset.tab });
     document.querySelectorAll('.p4-tab').forEach(t => t.classList.remove('active'));
     tab.classList.add('active');
     const tabId = tab.dataset.tab;
@@ -4635,6 +5079,8 @@ document.querySelectorAll('#page4 .p4-map-options').forEach(optGroup => {
   optGroup.addEventListener('click', (e) => {
     const opt = e.target.closest('.p4-map-opt');
     if (!opt) return;
+    const trackTarget = opt.dataset.map ? 'video-map-style' : 'video-track-style';
+    Tracker.log('click', trackTarget, { value: opt.dataset.map || opt.dataset.track });
     optGroup.querySelectorAll('.p4-map-opt').forEach(o => o.classList.remove('selected'));
     opt.classList.add('selected');
     hasVideoEdited = true;
@@ -4757,6 +5203,7 @@ function playMusicByName(name) {
 
 document.querySelectorAll('.p4-music-opt').forEach(opt => {
   opt.addEventListener('click', () => {
+    Tracker.log('click', 'video-music', { music: opt.dataset.music });
     document.querySelectorAll('.p4-music-opt').forEach(o => o.classList.remove('selected'));
     opt.classList.add('selected');
     hasVideoEdited = true;
@@ -4806,6 +5253,7 @@ function togglePhoto(item, index) {
 
 // Open add photo page
 document.getElementById('btn-add-photo').addEventListener('click', () => {
+  Tracker.log('click', 'video-add-photo');
   initPhotoGrid();
   selectedPhotos = [];
   p4dHintText.textContent = `还有 ${MAX_PHOTOS} 张照片可选`;
@@ -4815,11 +5263,13 @@ document.getElementById('btn-add-photo').addEventListener('click', () => {
 
 // Back from photo page
 document.getElementById('btn-photo-back').addEventListener('click', () => {
+  Tracker.log('click', 'photo-back');
   switchPage('page4d', 'page4', false);
 });
 
 // Confirm add photos
 document.getElementById('btn-photo-confirm').addEventListener('click', () => {
+  Tracker.log('click', 'photo-confirm', { count: selectedPhotos.length });
   if (selectedPhotos.length === 0) {
     switchPage('page4d', 'page4', false);
     return;
@@ -4868,6 +5318,7 @@ let hasEdited = false;
 
 // Page 5: Back button logic
 document.getElementById('btn-report-edit-back').addEventListener('click', () => {
+  Tracker.log('abandon', 'report-back');
   if (hasEdited) {
     showPage('page5a', false);
   } else {
@@ -4877,7 +5328,9 @@ document.getElementById('btn-report-edit-back').addEventListener('click', () => 
 
 // Page 5: Share button → show share panel
 document.getElementById('btn-report-edit-share').addEventListener('click', () => {
+  Tracker.log('share', 'report-share');
   switchPage('page5', 'page5b', false);
+  ScenarioManager.onShareComplete();
 });
 
 // Page 5A: Confirm exit → back to share style selection
@@ -4930,6 +5383,7 @@ function updateScrollState() {
 // Tab switching
 document.querySelectorAll('.p5-tab').forEach(tab => {
   tab.addEventListener('click', () => {
+    Tracker.log('click', 'report-tab', { tab: tab.dataset.tab });
     document.querySelectorAll('.p5-tab').forEach(t => t.classList.remove('active'));
     tab.classList.add('active');
     const tabId = tab.dataset.tab;
@@ -4943,6 +5397,9 @@ document.querySelectorAll('.p5-tab').forEach(tab => {
 document.querySelectorAll('.p5-tag').forEach(tag => {
   tag.addEventListener('click', () => {
     const group = tag.closest('.p5-tag-group');
+    const tabId = group.id.replace('tab-', '');
+    const targetType = tabId === 'data' ? 'report-data-tag' : 'report-chart-tag';
+    Tracker.log('click', targetType, { tag: tag.textContent.trim() });
     const allTags = Array.from(group.querySelectorAll('.p5-tag'));
     const showAllTag = allTags.find(t => t.dataset.role === 'show-all');
     const isShowAll = tag.dataset.role === 'show-all';
@@ -5034,6 +5491,7 @@ document.querySelectorAll('.p5-map-options').forEach(optGroup => {
   optGroup.addEventListener('click', (e) => {
     const opt = e.target.closest('.p5-map-opt');
     if (!opt) return;
+    Tracker.log('click', 'report-map-style', { value: opt.textContent.trim() });
     optGroup.querySelectorAll('.p5-map-opt').forEach(o => o.classList.remove('selected'));
     opt.classList.add('selected');
     hasEdited = true;

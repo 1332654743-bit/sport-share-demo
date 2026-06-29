@@ -362,10 +362,11 @@ html, body { height: 100%; overflow: hidden; font-family: -apple-system, BlinkMa
 </div>
 
 <script type="importmap">
-{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
 </script>
 <script type="module">
 import * as THREE from 'three';
+import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 
 // ============ 状态 ============
 let hasEdited = false;
@@ -767,10 +768,22 @@ function initThreeScene() {
   hitMarker.position.copy(hitPoint);
   scene.add(hitMarker);
 
+  // 加载人物静态模型（发球姿势）
+  const loader = new OBJLoader();
+  loader.load('models/trophy-pose-low.obj', (obj) => {
+    const mat = new THREE.MeshPhongMaterial({ color: 0x6a6a6a, transparent: true, opacity: 0.75, shininess: 30 });
+    obj.traverse((child) => { if (child.isMesh) child.material = mat; });
+    obj.position.set(0.030, 0.660, 0.220);
+    obj.scale.set(0.680, 0.680, 0.680);
+    obj.rotation.set(0.010, 0.770, 0.020);
+    scene.add(obj);
+  });
+
   setCameraPreset('orbit');
   updateOverlayChart();
   requestAnimationFrame(animLoop);
 }
+
 
 function setCameraPreset(key) {
   currentAngle = key;
@@ -816,6 +829,7 @@ function animLoop(time) {
       document.getElementById('play-overlay').classList.remove('hidden');
       document.getElementById('card-overlay').classList.add('show');
       document.getElementById('card-chart-area').classList.add('show');
+      hideViewLabel();
     }
   }
 
@@ -839,8 +853,36 @@ function animLoop(time) {
   camera.position.copy(cam.pos);
   camera.lookAt(cam.look);
 
+  // 多机位剪辑视角提示
+  if (currentAngle === 'autocut' && isPlaying) {
+    let viewLabel = '';
+    if (camT < 0.25) viewLabel = '正视';
+    else if (camT < 0.5) viewLabel = '侧视';
+    else viewLabel = '俯视';
+    showViewLabel(viewLabel);
+  } else if (currentAngle !== 'autocut') {
+    hideViewLabel();
+  }
+
   lastTime = time;
   renderer.render(scene, camera);
+}
+
+function showViewLabel(text) {
+  let el = document.getElementById('autocut-view-label');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'autocut-view-label';
+    el.style.cssText = 'position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.6);color:#fff;font-size:12px;padding:3px 12px;border-radius:4px;pointer-events:none;transition:opacity 0.3s;z-index:10;';
+    document.querySelector('.video-preview').appendChild(el);
+  }
+  el.textContent = text;
+  el.style.opacity = '1';
+}
+
+function hideViewLabel() {
+  const el = document.getElementById('autocut-view-label');
+  if (el) el.style.opacity = '0';
 }
 
 // ============ 图表绘制 ============
