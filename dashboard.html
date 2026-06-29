@@ -21,61 +21,155 @@ td { color: #e0e0e0; }
 .bar-cell { text-align: left; }
 .bar { display: inline-block; height: 16px; background: #ff6b00; border-radius: 3px; margin-right: 6px; vertical-align: middle; min-width: 2px; }
 .empty { text-align: center; color: #666; padding: 40px; }
-.refresh-info { text-align: center; color: #555; font-size: 11px; margin-top: 12px; }
 .highlight { color: #ff9500; font-weight: 700; }
+
+/* 数据导入区 */
+.import-section { background: #2a2a3e; border-radius: 12px; padding: 16px; margin-bottom: 24px; }
+.import-section h2 { font-size: 15px; margin-bottom: 12px; color: #ff9500; }
+.import-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.import-btn { background: #ff6b00; color: #fff; border: none; padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.import-btn:hover { background: #ff8c00; }
+.import-btn.secondary { background: transparent; border: 1px solid #ff6b00; color: #ff6b00; }
+.file-input { display: none; }
+.import-status { font-size: 12px; color: #8f8; margin-top: 8px; }
+.stored-count { font-size: 12px; color: #888; margin-top: 8px; }
 </style>
 </head>
 <body>
 <h1>运动分享调研看板</h1>
-<p class="subtitle">数据每 30 秒自动刷新</p>
+<p class="subtitle">从飞书消息中复制 JSON 数据，或上传本地 JSON 文件</p>
+
+<div class="import-section">
+  <h2>导入数据</h2>
+  <div class="import-row">
+    <button class="import-btn" onclick="document.getElementById('file-input').click()">上传 JSON 文件</button>
+    <button class="import-btn secondary" onclick="pasteFromClipboard()">从剪贴板粘贴</button>
+    <button class="import-btn secondary" onclick="clearData()">清空数据</button>
+    <input type="file" id="file-input" class="file-input" multiple accept=".json" onchange="handleFiles(this.files)">
+  </div>
+  <div class="stored-count" id="stored-count"></div>
+  <div class="import-status" id="import-status"></div>
+</div>
 
 <div class="progress-bar">
   <div class="progress-fill" id="progress-fill"></div>
-  <span class="progress-text" id="progress-text">加载中...</span>
+  <span class="progress-text" id="progress-text">暂无数据</span>
 </div>
 
-<div class="section" id="section-style">
+<div class="section">
   <h2>场景 × 样式选择</h2>
-  <div id="table-style"></div>
+  <div id="table-style"><p class="empty">导入数据后自动显示</p></div>
 </div>
 
-<div class="section" id="section-duration">
+<div class="section">
   <h2>各场景编辑时长</h2>
-  <div id="table-duration"></div>
+  <div id="table-duration"><p class="empty">导入数据后自动显示</p></div>
 </div>
 
-<div class="section" id="section-features">
+<div class="section">
   <h2>功能使用率 Top 10</h2>
-  <div id="table-features"></div>
+  <div id="table-features"><p class="empty">导入数据后自动显示</p></div>
 </div>
-
-<p class="refresh-info" id="refresh-info"></p>
 
 <script>
 const TARGET = 20;
 const SCENARIO_NAMES = { daily: '日常打卡', pb: '成绩突破', marathon: '马拉松完赛' };
-const STYLE_NAMES = { watermark: '水印海报', video: '轨迹视频', report: '运动报告' };
+const STORE_KEY = 'dashboard_submissions';
 
-async function fetchData() {
+// 从 localStorage 读取已存数据
+function getSubmissions() {
+  try { return JSON.parse(localStorage.getItem(STORE_KEY) || '[]'); } catch { return []; }
+}
+function saveSubmissions(subs) {
+  localStorage.setItem(STORE_KEY, JSON.stringify(subs));
+}
+
+// 导入 JSON 文件
+function handleFiles(files) {
+  let count = 0;
+  const subs = getSubmissions();
+  Array.from(files).forEach(file => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const raw = JSON.parse(e.target.result);
+        const sub = normalize(raw);
+        if (sub && !isDuplicate(subs, sub)) {
+          subs.push(sub);
+          count++;
+        }
+      } catch(err) { console.warn('解析失败:', file.name, err); }
+      if (++count >= 0) { // 所有文件读完后刷新
+        saveSubmissions(subs);
+        render(subs);
+        showStatus(`成功导入，当前共 ${subs.length} 份数据`);
+      }
+    };
+    reader.readAsText(file);
+  });
+}
+
+// 从剪贴板粘贴
+async function pasteFromClipboard() {
   try {
-    const res = await fetch('/api/results');
-    const { total, submissions } = await res.json();
-    render(total, submissions);
-  } catch (e) {
-    document.getElementById('progress-text').textContent = '无法连接服务器';
+    const text = await navigator.clipboard.readText();
+    const raw = JSON.parse(text);
+    const subs = getSubmissions();
+    const sub = normalize(raw);
+    if (sub && !isDuplicate(subs, sub)) {
+      subs.push(sub);
+      saveSubmissions(subs);
+      render(subs);
+      showStatus('粘贴成功！');
+    } else {
+      showStatus('数据已存在或格式无效');
+    }
+  } catch(e) {
+    showStatus('粘贴失败：请先复制 JSON 文本，或检查浏览器权限');
   }
 }
 
-function render(total, submissions) {
-  // Progress
+function clearData() {
+  if (confirm('确认清空所有已导入的数据？')) {
+    localStorage.removeItem(STORE_KEY);
+    render([]);
+    showStatus('已清空');
+  }
+}
+
+// 标准化数据格式
+function normalize(raw) {
+  // 格式1: {userId, data: {events, summary}, submittedAt}
+  if (raw.userId && raw.data && raw.data.summary) return raw;
+  // 格式2: {events, summary} (直接从 demo 导出的)
+  if (raw.events && raw.summary) return { userId: 'file_' + Date.now(), data: raw, submittedAt: '' };
+  // 格式3: 飞书消息中复制的完整 JSON
+  if (raw.summary && !raw.events) return { userId: raw.userId || 'paste_' + Date.now(), data: raw, submittedAt: raw.submittedAt || '' };
+  return null;
+}
+
+function isDuplicate(subs, newSub) {
+  return subs.some(s => s.userId === newSub.userId);
+}
+
+function showStatus(msg) {
+  document.getElementById('import-status').textContent = msg;
+  setTimeout(() => { document.getElementById('import-status').textContent = ''; }, 3000);
+}
+
+// ========== 渲染 ==========
+function render(submissions) {
+  const total = submissions.length;
+  document.getElementById('stored-count').textContent = `已存储 ${total} 份数据`;
+
   const pct = Math.min(100, (total / TARGET * 100)).toFixed(0);
   document.getElementById('progress-fill').style.width = pct + '%';
-  document.getElementById('progress-text').textContent = `已收集 ${total} / ${TARGET} 份 (${pct}%)`;
+  document.getElementById('progress-text').textContent = total > 0 ? `已收集 ${total} / ${TARGET} 份 (${pct}%)` : '暂无数据';
 
   if (total === 0) {
-    document.getElementById('table-style').innerHTML = '<p class="empty">暂无数据</p>';
-    document.getElementById('table-duration').innerHTML = '<p class="empty">暂无数据</p>';
-    document.getElementById('table-features').innerHTML = '<p class="empty">暂无数据</p>';
+    document.getElementById('table-style').innerHTML = '<p class="empty">导入数据后自动显示</p>';
+    document.getElementById('table-duration').innerHTML = '<p class="empty">导入数据后自动显示</p>';
+    document.getElementById('table-features').innerHTML = '<p class="empty">导入数据后自动显示</p>';
     return;
   }
 
@@ -156,8 +250,6 @@ function render(total, submissions) {
   });
   featHTML += '</table>';
   document.getElementById('table-features').innerHTML = featHTML;
-
-  document.getElementById('refresh-info').textContent = '上次刷新: ' + new Date().toLocaleTimeString();
 }
 
 function pctStr(count, total) {
@@ -172,9 +264,8 @@ function fmtDur(ms) {
   return Math.floor(s / 60) + '分' + (s % 60) + '秒';
 }
 
-// Initial fetch + auto refresh
-fetchData();
-setInterval(fetchData, 30000);
+// 页面加载时渲染已有数据
+render(getSubmissions());
 </script>
 </body>
 </html>
