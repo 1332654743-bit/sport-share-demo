@@ -2986,8 +2986,10 @@ body {
 
 <script>
 // ========== 数据回传模块（飞书 Webhook）==========
-// ⚠️ 部署前替换为你的飞书群 Webhook 地址
 const FEISHU_WEBHOOK = 'https://open.feishu.cn/open-apis/bot/v2/hook/6d3cb2ac-b4cb-45d2-a441-1c2a7606035e';
+
+// 测试模式：URL 带 ?test 参数时标记为测试数据，不计入正式分析
+const IS_TEST_MODE = new URLSearchParams(window.location.search).has('test');
 
 function getUserId() {
   let id = localStorage.getItem('tracker_user_id');
@@ -3024,7 +3026,7 @@ async function submitToServer() {
     const card = {
       msg_type: 'interactive',
       card: {
-        header: { title: { tag: 'plain_text', content: '📊 调研数据已收到' }, template: 'green' },
+        header: { title: { tag: 'plain_text', content: IS_TEST_MODE ? '🧪 测试数据（不计入正式分析）' : '📊 调研数据已收到' }, template: IS_TEST_MODE ? 'orange' : 'green' },
         elements: [
           { tag: 'div', text: { tag: 'lark_md', content: [
             `**用户ID：** ${userId.slice(0, 12)}`,
@@ -3035,7 +3037,7 @@ async function submitToServer() {
             '---',
             '**完整数据（复制下方JSON）：**'
           ].join('\n') }},
-          { tag: 'div', text: { tag: 'plain_text', content: JSON.stringify({ userId, submittedAt: new Date().toISOString(), ...data }) }}
+          { tag: 'div', text: { tag: 'plain_text', content: JSON.stringify({ userId, submittedAt: new Date().toISOString(), isTest: IS_TEST_MODE, ...data }) }}
         ]
       }
     };
