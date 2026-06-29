@@ -72,8 +72,37 @@ td { color: #e0e0e0; }
 </div>
 
 <script>
-const TARGET = 20;
+const TARGET = 200;
 const SCENARIO_NAMES = { daily: '日常打卡', pb: '成绩突破', marathon: '马拉松完赛' };
+const FEATURE_NAMES = {
+  'template-select': '选择模板',
+  'bg-preset': '选择预设背景',
+  'bg-album': '相册选背景',
+  'bg-transparent': '透明背景',
+  'bg-confirm': '确认背景',
+  'bg-back': '背景页返回',
+  'poster-add-wm': '添加水印',
+  'poster-del-wm': '删除水印',
+  'poster-edit-wm': '编辑水印',
+  'poster-crop': '裁剪背景',
+  'poster-crop-confirm': '确认裁剪',
+  'poster-color': '颜色编辑',
+  'poster-fullscreen': '全屏预览',
+  'poster-undo': '撤回操作',
+  'video-tab': '视频标签切换',
+  'video-map-style': '地图样式',
+  'video-track-style': '轨迹样式',
+  'video-music': '选择音乐',
+  'video-add-photo': '添加照片',
+  'photo-confirm': '确认照片',
+  'report-tab': '报告标签切换',
+  'report-data-tag': '数据项选择',
+  'report-chart-tag': '图表选择',
+  'report-map-style': '报告地图样式',
+  'style-watermark': '选择水印海报',
+  'style-video': '选择轨迹视频',
+  'style-report': '选择运动报告',
+};
 const STORE_KEY = 'dashboard_submissions';
 
 // 从 localStorage 读取已存数据
@@ -242,8 +271,9 @@ function render(submissions) {
   sorted.forEach(([feat, count]) => {
     const barW = Math.round(count / maxCount * 120);
     const rate = (count / total * 100).toFixed(0);
+    const name = FEATURE_NAMES[feat] || feat;
     featHTML += `<tr>
-      <td style="text-align:left;width:35%">${feat}</td>
+      <td style="text-align:left;width:35%">${name}</td>
       <td class="bar-cell"><span class="bar" style="width:${barW}px"></span>${rate}%</td>
       <td style="width:15%">${count}人</td>
     </tr>`;
