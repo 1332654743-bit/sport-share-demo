@@ -880,6 +880,80 @@ body {
   top: -14px;
 }
 
+/* 数据水印编辑态：数据行覆盖 */
+.wm-item.editing .wm-data-rows {
+  display: flex;
+}
+.wm-data-rows {
+  display: none;
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  flex-direction: column;
+  justify-content: center;
+  padding: 8% 10%;
+  gap: 4%;
+  pointer-events: auto;
+}
+.wm-data-row {
+  flex: 1;
+  border: 1.5px dashed rgba(255,255,255,0.6);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  position: relative;
+  max-height: 30%;
+}
+.wm-data-row:active, .wm-data-row.tapped {
+  background: rgba(255,107,0,0.15);
+  border-color: #ff6b00;
+}
+.wm-data-row .wm-data-row-check {
+  position: absolute;
+  top: -6px; right: -6px;
+  width: 16px; height: 16px;
+  background: #ff6b00;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: #fff;
+}
+
+/* 数据编辑 modal 列表样式 */
+.wm-edit-modal-grid.list-mode {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.wm-edit-modal-grid.list-mode .wm-edit-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 12px;
+  border-radius: 0;
+  border: none;
+  border-bottom: 1px solid #3a3a3c;
+  background: transparent;
+}
+.wm-edit-modal-grid.list-mode .wm-edit-option span {
+  font-size: 15px;
+  margin-top: 0;
+  color: #ccc;
+}
+.wm-edit-modal-grid.list-mode .wm-edit-option.selected {
+  background: rgba(255,107,0,0.1);
+}
+.wm-edit-modal-grid.list-mode .wm-edit-option.selected span {
+  color: #fff;
+  font-weight: 700;
+  font-size: 17px;
+}
+
+
 /* 弹窗覆盖层 */
 .wm-panel-overlay {
   position: absolute;
@@ -2288,17 +2362,43 @@ body {
 .tracker-intro-card .card-title { font-size: 12px; font-weight: 600; }
 .tracker-intro-card .card-desc { font-size: 10px; color: #aaa; margin-top: 4px; }
 
+.tracker-scenario { width: 100%; max-height: 100%; overflow-y: auto; }
 .tracker-scenario h2 { font-size: 16px; color: #ff6b00; margin-bottom: 8px; }
 .tracker-scenario .scenario-badge {
   display: inline-block; background: #ff6b00; color: #fff;
   font-size: 11px; padding: 2px 10px; border-radius: 10px; margin-bottom: 12px;
 }
+.tracker-scenario .scenario-video {
+  width: 100%; max-width: 280px; margin: 0 auto 14px; border-radius: 12px; overflow: hidden;
+  background: #000;
+}
+.tracker-scenario .scenario-video video {
+  width: 100%; display: block; border-radius: 12px;
+}
+.scenario-video-replay {
+  margin-top: 8px; font-size: 13px; color: #ff6b00; cursor: pointer;
+  text-align: center;
+}
+.scenario-video-replay:active { opacity: 0.6; }
 .tracker-scenario .scenario-desc {
-  font-size: 14px; line-height: 1.6; color: #ddd; margin-bottom: 16px;
-  text-align: left; background: #1a1a1a; border-radius: 10px; padding: 16px;
+  font-size: 13px; line-height: 1.6; color: #ddd; margin-bottom: 12px;
+  text-align: left; background: #1a1a1a; border-radius: 10px; padding: 12px 14px;
 }
 .tracker-scenario .scenario-data {
   font-size: 12px; color: #999; margin-bottom: 20px;
+}
+.tracker-thanks { text-align: center; }
+.tracker-thanks .thanks-icon { font-size: 48px; margin-bottom: 16px; }
+.tracker-thanks h2 { font-size: 20px; margin-bottom: 12px; color: #ff6b00; }
+.tracker-thanks p { font-size: 14px; color: #ccc; line-height: 1.8; }
+
+.tracker-btn-hidden {
+  opacity: 0; pointer-events: none; transform: translateY(10px);
+  transition: none;
+}
+.tracker-btn-ready {
+  opacity: 1; pointer-events: auto; transform: translateY(0);
+  transition: opacity 0.4s ease, transform 0.4s ease;
 }
 
 .tracker-btn {
@@ -2338,6 +2438,45 @@ body {
 .tracker-restart-btn {
   background: transparent; color: #999; border: 1px solid #333; border-radius: 24px;
   padding: 10px; font-size: 13px; cursor: pointer; margin-top: 10px; width: 100%;
+}
+
+/* === Tracker: 主观题 === */
+.tracker-survey { width: 100%; max-width: 340px; }
+.tracker-survey h2 { font-size: 16px; margin-bottom: 16px; }
+.tracker-survey .survey-options { text-align: left; margin-bottom: 20px; }
+.tracker-survey .survey-option {
+  display: block; width: 100%; padding: 12px 14px; margin-bottom: 8px;
+  background: #1a1a1a; border: 1.5px solid #333; border-radius: 10px;
+  color: #ddd; font-size: 14px; cursor: pointer; transition: all 0.15s;
+}
+.tracker-survey .survey-option.selected {
+  border-color: #ff6b00; background: rgba(255,107,0,0.1); color: #fff;
+}
+.tracker-survey .survey-submit {
+  background: #ff6b00; color: #fff; border: none; border-radius: 24px;
+  padding: 12px 36px; font-size: 15px; font-weight: 600; cursor: pointer;
+  opacity: 0.4; pointer-events: none; transition: opacity 0.2s;
+}
+.tracker-survey .survey-submit.active { opacity: 1; pointer-events: auto; }
+
+/* === Tracker: 开放题 === */
+.tracker-openqs { width: 100%; max-width: 340px; }
+.tracker-openqs h2 { font-size: 16px; margin-bottom: 16px; }
+.tracker-openqs .openq-block { text-align: left; margin-bottom: 16px; }
+.tracker-openqs .openq-label { font-size: 13px; color: #ccc; margin-bottom: 6px; }
+.tracker-openqs textarea {
+  width: 100%; height: 70px; background: #1a1a1a; border: 1px solid #333;
+  border-radius: 8px; color: #fff; font-size: 14px; padding: 10px;
+  resize: none; font-family: inherit;
+}
+.tracker-openqs textarea:focus { border-color: #ff6b00; outline: none; }
+.tracker-openqs .openq-submit {
+  background: #ff6b00; color: #fff; border: none; border-radius: 24px;
+  padding: 12px 36px; font-size: 15px; font-weight: 600; cursor: pointer;
+  margin-top: 8px;
+}
+.tracker-openqs .openq-skip {
+  color: #666; font-size: 12px; margin-top: 10px; cursor: pointer; border: none; background: none;
 }
 </style>
 </head>
@@ -3132,17 +3271,20 @@ const ScenarioManager = (() => {
     {
       id: 'daily', name: '日常打卡',
       desc: '周三晚上，你刚在小区旁边跑完5公里，出了一身汗。你掏出手机走在回家路上，想发个朋友圈记录一下今天的运动，然后到家赶紧洗澡。',
-      data: '5.02km / 32分钟 / 配速6\'23" / 心率155bpm'
+      data: '5.02km / 32分钟 / 配速6\'23" / 心率155bpm',
+      video: 'videos/daily.mp4'
     },
     {
       id: 'pb', name: '成绩突破（PB）',
       desc: '今天你跑出了个人5公里最好成绩！比上次快了整整40秒。你停下来喘着气，心情非常激动，想立刻分享给跑友群和朋友圈，让大家看看你的进步。',
-      data: '5.00km / 24分18秒 / 配速4\'52"（PB）/ 心率172bpm'
+      data: '5.00km / 24分18秒 / 配速4\'52"（PB）/ 心率172bpm',
+      video: 'videos/pb.mp4'
     },
     {
       id: 'marathon', name: '马拉松完赛',
       desc: '你完成了人生第一场全程马拉松！领完奖牌后坐在完赛休息区，喝着水，腿酸但内心充满成就感。这是一个里程碑时刻，你想认真做一条内容，发朋友圈/小红书/视频号纪念。',
-      data: '42.20km / 4小时38分 / 配速6\'35" / 心率148bpm / 累计爬升186m'
+      data: '42.20km / 4小时38分 / 配速6\'35" / 心率148bpm / 累计爬升186m',
+      video: 'videos/marathon.mp4'
     }
   ];
 
@@ -3194,15 +3336,41 @@ const ScenarioManager = (() => {
       <div class="tracker-scenario">
         <div class="scenario-badge">场景 ${currentIndex + 1} / 3</div>
         <h2>${s.name}</h2>
+        <div class="scenario-video">
+          <video src="${s.video}" playsinline webkit-playsinline autoplay></video>
+          <div class="scenario-video-replay" id="scenario-replay">▶ 重新播放</div>
+        </div>
         <div class="scenario-desc">${s.desc}</div>
         <div class="scenario-data">📊 ${s.data}</div>
-        <button class="tracker-btn" id="tracker-scenario-start">开始分享</button>
+        <button class="tracker-btn tracker-btn-hidden" id="tracker-scenario-start">开始分享</button>
       </div>
     `;
-    document.getElementById('tracker-scenario-start').addEventListener('click', () => {
+
+    const btn = document.getElementById('tracker-scenario-start');
+    setTimeout(() => {
+      btn.classList.remove('tracker-btn-hidden');
+      btn.classList.add('tracker-btn-ready');
+    }, 5000);
+
+    btn.addEventListener('click', () => {
+      if (btn.classList.contains('tracker-btn-hidden')) return;
+      const video = overlay.querySelector('video');
+      if (video) { video.pause(); video.currentTime = 0; }
       overlay.classList.add('hidden');
       Tracker.setScenario(s.id);
       Tracker.enterPage('page1');
+    });
+
+    const video = overlay.querySelector('video');
+    const replayBtn = document.getElementById('scenario-replay');
+    replayBtn.style.display = 'none';
+    video.addEventListener('ended', () => {
+      replayBtn.style.display = 'block';
+    });
+    replayBtn.addEventListener('click', () => {
+      replayBtn.style.display = 'none';
+      video.currentTime = 0;
+      video.play();
     });
   }
 
@@ -3220,57 +3388,130 @@ const ScenarioManager = (() => {
     if (phase !== 'scenario') return;
     Tracker.log('share', 'scenario-complete');
     setTimeout(() => {
-      resetDemoState();
-      startNextScenario();
+      showSubjectiveQuestion(() => {
+        resetDemoState();
+        startNextScenario();
+      });
     }, 800);
+  }
+
+  function showSubjectiveQuestion(callback) {
+    const scenarioId = order[currentIndex].id;
+    const summary = Tracker.summary();
+    const info = summary[scenarioId] || {};
+    const style = info.styleChoice;
+    const features = info.featuresUsed || [];
+
+    const FEATURE_OPTIONS = {
+      watermark: {
+        'template-select': '选择模板',
+        'bg-preset': '换背景', 'bg-album': '换背景', 'bg-confirm': '换背景',
+        'poster-add-wm': '添加/编辑水印', 'poster-edit-wm': '添加/编辑水印', 'poster-del-wm': '添加/编辑水印',
+        'poster-crop': '裁剪调整', 'poster-crop-confirm': '裁剪调整',
+        'poster-color': '颜色编辑'
+      },
+      video: {
+        'video-map-style': '选地图样式',
+        'video-track-style': '换轨迹样式',
+        'video-add-photo': '添加照片', 'photo-confirm': '添加照片',
+        'video-music': '选音乐'
+      },
+      report: {
+        'report-data-tag': '选择数据项',
+        'report-chart-tag': '选择图表',
+        'report-map-style': '换地图样式'
+      }
+    };
+
+    const featureMap = FEATURE_OPTIONS[style] || {};
+    const dynamicOptions = [...new Set(features.map(f => featureMap[f]).filter(Boolean))];
+
+    const allOptions = [...dynamicOptions, '都挺好，没有特别突出的', '都一般，默认效果就够了'];
+
+    const overlay = document.getElementById('tracker-overlay');
+    overlay.classList.remove('hidden');
+    overlay.innerHTML = `
+      <div class="tracker-survey">
+        <h2>刚才的操作中，哪一步让你觉得效果变好了？</h2>
+        <div class="survey-options">
+          ${allOptions.map((opt, i) => `<button class="survey-option" data-idx="${i}">${opt}</button>`).join('')}
+        </div>
+        <button class="survey-submit">下一步</button>
+      </div>
+    `;
+
+    let selected = null;
+    overlay.querySelectorAll('.survey-option').forEach(btn => {
+      btn.addEventListener('click', () => {
+        overlay.querySelectorAll('.survey-option').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        selected = btn.textContent;
+        overlay.querySelector('.survey-submit').classList.add('active');
+      });
+    });
+
+    overlay.querySelector('.survey-submit').addEventListener('click', () => {
+      if (!selected) return;
+      Tracker.log('subjective', 'scenario-question', { scenario: scenarioId, answer: selected });
+      overlay.classList.add('hidden');
+      callback();
+    });
   }
 
   function finishAll() {
     phase = 'done';
+    showOpenQuestions(() => {
+      submitToServer();
+      showExportPanel();
+    });
+  }
+
+  function showOpenQuestions(callback) {
     const overlay = document.getElementById('tracker-overlay');
-    overlay.classList.add('hidden');
-    submitToServer();
-    showExportPanel();
+    overlay.classList.remove('hidden');
+    overlay.innerHTML = `
+      <div class="tracker-openqs">
+        <h2>最后两个问题</h2>
+        <div class="openq-block">
+          <div class="openq-label">1. 在今天的操作中，有没有哪个步骤你觉得多余或可以省掉？</div>
+          <textarea id="openq1" placeholder="随便说说，没有也可以留空"></textarea>
+        </div>
+        <div class="openq-block">
+          <div class="openq-label">2. 有没有你想做但找不到的功能，或者你觉得别的App做得好的分享体验？</div>
+          <textarea id="openq2" placeholder="随便说说，没有也可以留空"></textarea>
+        </div>
+        <button class="openq-submit">提交完成</button>
+        <button class="openq-skip">跳过</button>
+      </div>
+    `;
+
+    function submit() {
+      const q1 = document.getElementById('openq1').value.trim();
+      const q2 = document.getElementById('openq2').value.trim();
+      if (q1) Tracker.log('openq', 'redundant-step', { answer: q1 });
+      if (q2) Tracker.log('openq', 'missing-feature', { answer: q2 });
+      overlay.classList.add('hidden');
+      callback();
+    }
+
+    overlay.querySelector('.openq-submit').addEventListener('click', submit);
+    overlay.querySelector('.openq-skip').addEventListener('click', () => {
+      Tracker.log('openq', 'skipped');
+      overlay.classList.add('hidden');
+      callback();
+    });
   }
 
   function showExportPanel() {
-    const panel = document.getElementById('tracker-export');
-    const summaryDiv = document.getElementById('tracker-summary');
-    const summary = Tracker.summary();
-    const scenarioNames = { daily: '日常打卡', pb: '成绩突破', marathon: '马拉松完赛' };
-    let html = '';
-    Object.entries(summary).forEach(([key, val]) => {
-      html += `<div class="tracker-summary-card">
-        <h3>${scenarioNames[key] || key}</h3>
-        <p>
-          选择样式：<b>${val.styleChoice || '未选'}</b><br>
-          操作数：${val.featureCount} 个功能<br>
-          总时长：${(val.totalDuration / 1000).toFixed(1)}秒<br>
-          结果：${val.shared ? '✅ 已分享' : (val.abandoned ? '❌ 放弃' : '⏳ 未完成')}<br>
-          使用功能：${val.featuresUsed.join(', ') || '无'}
-        </p>
-      </div>`;
-    });
-    summaryDiv.innerHTML = html;
-    panel.classList.add('show');
-
-    document.getElementById('tracker-export-btn').addEventListener('click', () => {
-      const data = Tracker.export();
-      console.log('📊 埋点数据:', JSON.parse(data));
-      const blob = new Blob([data], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `tracker-${Date.now()}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-    });
-
-    document.getElementById('tracker-restart-btn').addEventListener('click', () => {
-      panel.classList.remove('show');
-      Tracker.reset();
-      ScenarioManager.init();
-    });
+    const overlay = document.getElementById('tracker-overlay');
+    overlay.classList.remove('hidden');
+    overlay.innerHTML = `
+      <div class="tracker-thanks">
+        <div class="thanks-icon">🎉</div>
+        <h2>调研完成</h2>
+        <p>感谢你的参与和耐心操作！<br>你的反馈对我们非常重要。</p>
+      </div>
+    `;
   }
 
   function resetDemoState() {
@@ -3657,10 +3898,11 @@ function loadTemplateToCanvas(tplKey) {
   canvas.innerHTML = '';
   config.watermarks.forEach(wm => {
     const isLogo = wm.src.includes('wm-logo');
+    const isData = wm.src.includes('wm-data');
     const fakeItem = {
       src: wm.src,
-      label: wm.src.split('/').pop().replace('.png',''),
-      cat: isLogo ? 'logo' : 'other',
+      label: isData ? '三数据' : wm.src.split('/').pop().replace('.png',''),
+      cat: isLogo ? 'logo' : (isData ? 'data' : 'other'),
       editable: !isLogo,
       locked: isLogo
     };
@@ -3724,12 +3966,25 @@ function addWatermarkAtPosition(item, xPct, yPct, wPct, hPct) {
   if (editBtn) {
     editBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      openEditModal(el);
+      if (el.classList.contains('editing')) {
+        finishEditing(el);
+      } else {
+        Tracker.log('click', 'poster-edit-wm');
+        el.classList.add('editing');
+        editBtn.textContent = '完成';
+        openEditModal(el);
+      }
     });
     editBtn.addEventListener('touchend', (e) => {
-      e.stopPropagation();
-      e.preventDefault();
-      openEditModal(el);
+      e.stopPropagation(); e.preventDefault();
+      if (el.classList.contains('editing')) {
+        finishEditing(el);
+      } else {
+        Tracker.log('click', 'poster-edit-wm');
+        el.classList.add('editing');
+        editBtn.textContent = '完成';
+        openEditModal(el);
+      }
     });
   }
 
@@ -4482,6 +4737,8 @@ function finishEditing(el) {
     el.classList.remove('editing');
     const editBtn = el.querySelector('.wm-btn-edit');
     if (editBtn) editBtn.textContent = '✎';
+    const rows = el.querySelector('.wm-data-rows');
+    if (rows) rows.remove();
   }
 }
 
@@ -4794,20 +5051,14 @@ function openEditModal(el) {
   wmEditTarget = el;
   wmEditSelected = null;
   const cat = el.dataset.cat;
-  const label = el.dataset.label;
 
   if (cat === 'data') {
-    wmEditTitle.textContent = '选择数据水印';
-    const dataItems = wmData.filter(d => d.cat === 'data');
-    wmEditGrid.innerHTML = dataItems.map((d, i) =>
-      `<div class="wm-edit-option${d.src === el.dataset.src ? ' selected' : ''}" data-idx="${i}" data-src="${d.src}">
-        <img src="${d.src}" style="width:100%;border-radius:4px;">
-        <span>${d.label}</span>
-      </div>`
-    ).join('');
+    enterDataEditMode(el);
+    return;
   } else if (cat === 'chart') {
     wmEditTitle.textContent = '选择图表水印';
     const chartItems = wmData.filter(d => d.cat === 'chart');
+    wmEditGrid.className = 'wm-edit-modal-grid';
     wmEditGrid.innerHTML = chartItems.map((d, i) =>
       `<div class="wm-edit-option${d.src === el.dataset.src ? ' selected' : ''}" data-idx="${i}" data-src="${d.src}">
         <img src="${d.src}" style="width:100%;border-radius:4px;">
@@ -4816,6 +5067,7 @@ function openEditModal(el) {
     ).join('');
   } else {
     wmEditTitle.textContent = '编辑 Slogan';
+    wmEditGrid.className = 'wm-edit-modal-grid';
     const slogans = ['每一步，都值得', '坚持改变，持续蜕变', '汗水为证', '坚持永无极限', '挑战自我，迎接成长', '生命不息，运动不止', '为不凡突破极限'];
     wmEditGrid.innerHTML = slogans.map((s, i) =>
       `<div class="wm-edit-option" data-idx="${i}" data-slogan="${s}">
@@ -4836,16 +5088,85 @@ function openEditModal(el) {
   wmEditModal.classList.add('show');
 }
 
+// 数据水印编辑模式
+const DATA_METRICS = ['配速', '总时长', '总距离', '平均心率', '最高心率', '卡路里', '步频', '步幅', '累计爬升', '平均速度'];
+
+function getDataRowCount(label) {
+  if (label.includes('单')) return 1;
+  if (label.includes('双')) return 2;
+  if (label.includes('三')) return 3;
+  if (label.includes('四')) return 4;
+  if (label.includes('全')) return 4;
+  if (label.includes('主')) return 3;
+  if (label.includes('类比')) return 2;
+  return 3;
+}
+
+function enterDataEditMode(el) {
+  el.classList.add('editing');
+  const editBtn = el.querySelector('.wm-btn-edit');
+  if (editBtn) editBtn.textContent = '完成';
+
+  let rows = el.querySelector('.wm-data-rows');
+  if (!rows) {
+    const count = getDataRowCount(el.dataset.label || '');
+    rows = document.createElement('div');
+    rows.className = 'wm-data-rows';
+    for (let i = 0; i < count; i++) {
+      rows.innerHTML += `<div class="wm-data-row" data-row="${i}"><span class="wm-data-row-check">✓</span></div>`;
+    }
+    el.appendChild(rows);
+  }
+
+  rows.querySelectorAll('.wm-data-row').forEach(row => {
+    row.onclick = (e) => {
+      e.stopPropagation();
+      openDataPicker(el, row);
+    };
+  });
+}
+
+function openDataPicker(el, row) {
+  Tracker.log('click', 'poster-edit-wm');
+  wmEditTarget = el;
+  wmEditTitle.textContent = '数据编辑';
+  wmEditGrid.className = 'wm-edit-modal-grid list-mode';
+  wmEditGrid.innerHTML = DATA_METRICS.map((m, i) =>
+    `<div class="wm-edit-option" data-idx="${i}"><span>${m}</span></div>`
+  ).join('');
+
+  wmEditGrid.querySelectorAll('.wm-edit-option').forEach(opt => {
+    opt.addEventListener('click', () => {
+      wmEditGrid.querySelectorAll('.wm-edit-option').forEach(o => o.classList.remove('selected'));
+      opt.classList.add('selected');
+      wmEditSelected = opt;
+    });
+  });
+
+  wmEditModal.classList.add('show');
+  wmEditModal._dataRow = row;
+}
+
+
 function closeEditModal(apply) {
   if (apply && wmEditSelected && wmEditTarget) {
-    const newSrc = wmEditSelected.dataset.src;
-    if (newSrc) {
-      wmEditTarget.querySelector('.wm-item-img').src = newSrc;
-      wmEditTarget.dataset.src = newSrc;
-      wmSaveState();
+    if (wmEditModal._dataRow) {
+      const metricName = wmEditSelected.querySelector('span').textContent;
+      Tracker.log('click', 'poster-edit-wm-data', { metric: metricName });
+      showWmToast(`已更换为「${metricName}」，因Demo限制无法实时展示`);
+      wmEditModal._dataRow.classList.add('tapped');
+      setTimeout(() => wmEditModal._dataRow.classList.remove('tapped'), 600);
+    } else {
+      const newSrc = wmEditSelected.dataset.src;
+      if (newSrc) {
+        wmEditTarget.querySelector('.wm-item-img').src = newSrc;
+        wmEditTarget.dataset.src = newSrc;
+        wmSaveState();
+      }
     }
   }
   wmEditModal.classList.remove('show');
+  wmEditModal._dataRow = null;
   wmEditTarget = null;
   wmEditSelected = null;
 }
